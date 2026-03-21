@@ -218,7 +218,32 @@
     }
     .panel-hdr h2 { font-size: 1rem; font-weight: 700; }
     .panel-hdr .hdr-sub { font-size: 0.8rem; color: var(--on-surface-var); font-family: 'Work Sans', sans-serif; }
-    .chart-wrap { padding: 16px 20px; position: relative; }
+    .chart-wrap {
+      padding: 16px 20px;
+      position: relative;
+      min-height: 220px;
+      height: 280px;
+      overflow: hidden;
+    }
+    .chart-wrap canvas {
+      display: block !important;
+      position: absolute !important;
+      top: 16px !important;
+      left: 20px !important;
+      width: calc(100% - 40px) !important;
+      height: calc(100% - 32px) !important;
+    }
+    /* panels with charts fill their container height */
+    .panel-with-chart {
+      display: flex;
+      flex-direction: column;
+      min-height: 320px;
+    }
+    .panel-with-chart .chart-wrap {
+      flex: 1;
+      height: auto;
+      min-height: 220px;
+    }
 
     /* ══════════════ NET WORTH ══════════════ */
     .nw-hero {
@@ -820,13 +845,13 @@
       </div>
       <div class="summary-grid">
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>By Category</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="catTable"></table></div></div>
-        <div class="panel"><div class="panel-hdr"><h2>Expenses Breakdown</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="pieChart"></canvas></div></div>
-        <div class="panel"><div class="panel-hdr"><h2>By Category</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="barChart"></canvas></div></div>
+        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Expenses Breakdown</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="pieChart"></canvas></div></div>
+        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>By Category</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="barChart"></canvas></div></div>
       </div>
       <div class="summary-grid" style="margin-top:20px;">
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>Fixed Costs</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="fixedTable"></table></div></div>
-        <div class="panel"><div class="panel-hdr"><h2>Fixed Cost</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="fixedPieChart"></canvas></div></div>
-        <div class="panel"><div class="panel-hdr"><h2>Savings / Investment</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="savingsPieChart"></canvas></div></div>
+        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Fixed Cost</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="fixedPieChart"></canvas></div></div>
+        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Savings / Investment</h2></div><div class="chart-wrap" style="height:290px;"><canvas id="savingsPieChart"></canvas></div></div>
       </div>
     </div>
   </div>
@@ -844,7 +869,7 @@
       </div>
       <div class="panel" style="margin-bottom:20px;"><div class="panel-hdr"><h2>Monthly Overview</h2></div><div class="chart-wrap" style="height:270px;"><canvas id="ytdBarChart"></canvas></div></div>
       <div class="ytd-grid">
-        <div class="panel"><div class="panel-hdr"><h2>Net by Month</h2></div><div class="chart-wrap" style="height:240px;"><canvas id="ytdLineChart"></canvas></div></div>
+        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Net by Month</h2></div><div class="chart-wrap" style="height:240px;"><canvas id="ytdLineChart"></canvas></div></div>
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>YTD by Category</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="ytdCatTable"></table></div></div>
       </div>
     </div>
@@ -1157,7 +1182,15 @@ onAuthStateChanged(auth,user=>{
 // ─── CHARTS ───
 let pieC,barC,fixC,savC,ytdBar,ytdLine,nwLine,nwPie,assetCharts={};
 function initCharts(){
-  const mk=(id,type,o)=>new Chart(document.getElementById(id),{type,...o});
+  // responsive + no fixed aspect ratio = fills container
+  const mk=(id,type,o)=>{
+    const canvas=document.getElementById(id);
+    return new Chart(canvas,{type, ...o, options:{
+      ...(o.options||{}),
+      responsive:true,
+      maintainAspectRatio:false,
+    }});
+  };
   const axOpts=(yCb,extra={})=>({scales:{x:{ticks:{font:iFont,color:"#888"},grid:{display:false}},y:{ticks:{callback:yCb,font:iFont,color:"#888"},grid:{color:"#f0f0f0"}}}, ...extra});
   const pieLeg={position:"right",labels:{boxWidth:10,font:iFont,padding:12,color:"#555"}};
   const pTip={callbacks:{label:c=>` ${c.label}: ${fmt(c.parsed)}`}};
@@ -1517,11 +1550,44 @@ window.exportSnapshotsCSV=()=>{
   a.download="vault-networth.csv";a.click();
 };
 
-// ─── DOWNLOAD + OPEN GOOGLE SHEETS ───
+// ─── EXPORT TO GOOGLE SHEETS (via CSV encoded URL) ───
+function buildCSV(rows){
+  return rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+}
+
 window.exportAndOpenSheets=(type)=>{
-  if(type==="transactions") window.exportCSV();
-  else window.exportSnapshotsCSV();
-  setTimeout(()=>window.open("https://sheets.new","_blank"),800);
+  let csv, filename;
+  if(type==="transactions"){
+    if(!D.transactions.length){alert("No transactions.");return;}
+    const rows=[["Date","Type","Category","Description","Amount","Source"]];
+    [...D.transactions].sort((a,b)=>new Date(b.date)-new Date(a.date))
+      .forEach(t=>rows.push([t.date,t.type,t.category,t.description||"",t.amount,t.source||""]));
+    csv=buildCSV(rows); filename="vault-transactions.csv";
+  } else {
+    if(!D.snapshots.length){alert("No snapshots.");return;}
+    const sorted=[...D.snapshots].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const accs=[...new Set(sorted.flatMap(s=>Object.keys(s.values||{})))].sort();
+    const rows=[["Date",...accs,"Net Worth"],
+      ...sorted.map(s=>{
+        const nw=D.assets.reduce((sum,a)=>{const v=s.values?.[a.name]||0;return sum+(a.cat==="Credit Card"?-v:v);},0);
+        return [s.date,...accs.map(a=>s.values?.[a]||""),nw.toFixed(2)];
+      })];
+    csv=buildCSV(rows); filename="vault-networth.csv";
+  }
+
+  // 1. Download CSV
+  const a=document.createElement("a");
+  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+  a.download=filename; a.click();
+
+  // 2. Open Google Sheets import page after short delay
+  setTimeout(()=>{
+    // sheets.new opens blank sheet, user imports CSV via File > Import
+    window.open("https://sheets.new","_blank");
+    // Show toast with instructions
+    showStatus("CSV downloaded! In Sheets: File → Import → Upload");
+    setTimeout(()=>showStatus(""),4000);
+  }, 800);
 };
 window.clearSnapshots=()=>{if(!confirm("Delete ALL snapshots? This cannot be undone."))return;D.snapshots=[];saveDB();renderNetWorth();};
 
@@ -1554,6 +1620,42 @@ document.getElementById("monthNavWrap").style.display="flex";
 initCharts();
 buildAssetInputs();
 
+// ── ResizeObserver: charts reflow when panel/wrap changes size ──
+(function(){
+  if(!window.ResizeObserver) return;
+  let roTimer;
+  const ro = new ResizeObserver(()=>{
+    clearTimeout(roTimer);
+    roTimer = setTimeout(()=>{
+      document.querySelectorAll('.chart-wrap canvas').forEach(canvas=>{
+        const chart = Chart.getChart(canvas);
+        if(!chart) return;
+        const wrap = canvas.closest('.chart-wrap');
+        if(!wrap) return;
+        const w = Math.max(80, wrap.clientWidth - 40);
+        const h = Math.max(80, wrap.clientHeight - 32);
+        try {
+          canvas.style.width = w + 'px';
+          canvas.style.height = h + 'px';
+          canvas.width = w;
+          canvas.height = h;
+          chart.resize(w, h);
+        } catch(e){}
+      });
+    }, 50);
+  });
+  // Observe chart-wraps AND their parent panels
+  document.querySelectorAll('.chart-wrap, .panel-with-chart').forEach(el=>ro.observe(el));
+  new MutationObserver(muts=>{
+    muts.forEach(m=>m.addedNodes.forEach(n=>{
+      if(n.nodeType===1){
+        n.querySelectorAll&&n.querySelectorAll('.chart-wrap,.panel-with-chart').forEach(el=>ro.observe(el));
+        if(n.classList&&(n.classList.contains('chart-wrap')||n.classList.contains('panel-with-chart'))) ro.observe(n);
+      }
+    }));
+  }).observe(document.body,{childList:true,subtree:true});
+})();
+
 </script>
 
 <!-- drag overlay -->
@@ -1568,9 +1670,26 @@ buildAssetInputs();
 (function(){
   const overlay = document.getElementById('dragOverlay');
 
-  /* ── helper: fire chart resize after layout change ── */
+  /* ── helper: resize all Chart.js instances ── */
   function reflowCharts(){
-    window.dispatchEvent(new Event('resize'));
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        document.querySelectorAll('.chart-wrap canvas').forEach(canvas=>{
+          const chart = Chart.getChart(canvas);
+          if(!chart) return;
+          const wrap = canvas.closest('.chart-wrap');
+          if(!wrap) return;
+          const w = Math.max(80, wrap.clientWidth - 40);
+          const h = Math.max(80, wrap.clientHeight - 32);
+          // Force canvas element size first
+          canvas.style.width = w + 'px';
+          canvas.style.height = h + 'px';
+          canvas.width = w;
+          canvas.height = h;
+          chart.resize(w, h);
+        });
+      });
+    });
   }
 
   /* ════════════════════════════════════
