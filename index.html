@@ -175,9 +175,10 @@
     .stat-grid-4 { grid-template-columns: repeat(4, 1fr); }
     .stat-card {
       background: var(--surface-white);
-      border-radius: 16px; padding: 28px 28px 24px;
+      border-radius: 16px; padding: 24px 20px 20px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       position: relative; overflow: hidden;
+      min-width: 0;
     }
     .stat-card.dark { background: var(--primary-container); }
     .stat-card.surface { background: var(--surface-low); box-shadow: none; }
@@ -194,7 +195,10 @@
     }
     .stat-card.dark .s-label { color: var(--on-primary-container); }
     .stat-card .s-val {
-      font-size: 2.4rem; font-weight: 900; letter-spacing: -1px; line-height: 1;
+      font-size: clamp(1rem, 2.5vw, 2.2rem);
+      font-weight: 900; letter-spacing: -1px; line-height: 1.1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 100%;
     }
     .stat-card .s-sub {
       font-size: 0.82rem; font-weight: 600; margin-top: 10px;
@@ -210,6 +214,7 @@
       background: var(--surface-white);
       border-radius: 16px; overflow: hidden;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      min-width: 0;
     }
     .panel.surface { background: var(--surface-low); box-shadow: none; }
     .panel-hdr {
@@ -366,13 +371,14 @@
     }
     .filter-bar select:focus, .filter-bar input:focus { border-color: var(--on-surface); }
     .filter-bar input { flex: 1; min-width: 100px; }
-    .tx-list { max-height: 520px; overflow-y: auto; }
+    .tx-list { max-height: 520px; overflow-y: auto; overflow-x: hidden; }
     .tx-list::-webkit-scrollbar { width: 4px; }
     .tx-list::-webkit-scrollbar-thumb { background: var(--surface-container); border-radius: 2px; }
     .tx-item {
       display: flex; align-items: center; padding: 14px 20px;
       border-bottom: 1px solid var(--surface-low); gap: 14px;
       transition: background 0.1s; cursor: default;
+      min-width: 0; overflow: hidden;
     }
     .tx-item:hover { background: var(--surface-low); }
     .tx-icon {
@@ -387,7 +393,7 @@
       background: var(--surface-low); border: 1px solid var(--outline-var);
       border-radius: 6px; padding: 2px 8px; color: var(--on-surface-var); white-space: nowrap;
     }
-    .tx-amount { font-size: 0.95rem; font-weight: 800; }
+    .tx-amount { font-size: 0.95rem; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
     .tx-amount.income { color: var(--secondary); }
     .tx-amount.expense { color: var(--on-surface); }
     .tx-delete { background: none; border: none; color: var(--outline-var); cursor: pointer; padding: 4px; border-radius: 6px; opacity: 0; font-size: 0.85rem; }
@@ -767,7 +773,7 @@
     <div class="page">
       <div class="page-eyebrow">Monthly Overview</div>
       <div class="page-title" id="txPageTitle">Transactions</div>
-      <div class="stat-grid" style="margin-bottom:28px;max-width:700px;">
+      <div class="stat-grid" style="margin-bottom:28px;">
         <div class="stat-card dark">
           <div class="s-label">Income</div>
           <div class="s-val" id="t-income" style="color:#4ade80;">$0.00</div>
