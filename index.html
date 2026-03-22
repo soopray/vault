@@ -725,26 +725,18 @@
         </div>
       </div>
 
-      <div class="nw-2col" style="margin-bottom:20px;">
-        <div class="panel" style="overflow:auto;">
-          <div class="panel-hdr">
-            <h2>Asset Breakdown</h2>
-            <span class="hdr-sub" id="nwSnapshotDate"></span>
-          </div>
-          <table class="asset-table">
-            <thead><tr><th>Account</th><th>Balance</th><th>Change</th><th>%</th></tr></thead>
-            <tbody id="assetTableBody"></tbody>
-          </table>
+      <div class="panel" style="overflow:auto;margin-bottom:20px;">
+        <div class="panel-hdr">
+          <h2>Asset Breakdown</h2>
+          <span class="hdr-sub" id="nwSnapshotDate"></span>
         </div>
-        <div class="panel">
-          <div class="panel-hdr"><h2>Goals</h2><button class="btn-sm" onclick="openGoalModal()">+ Add Goal</button></div>
-          <div style="padding:20px 24px;" id="goalsList">
-            <div class="empty-state" style="padding:24px 0;">No goals yet</div>
-          </div>
-        </div>
+        <table class="asset-table">
+          <thead><tr><th>Account</th><th>Balance</th><th>Change</th><th>%</th></tr></thead>
+          <tbody id="assetTableBody"></tbody>
+        </table>
       </div>
 
-      <div class="nw-3col" style="margin-bottom:20px;" id="assetChartGrid"></div>
+      <div id="assetChartGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:20px;"></div>
 
       <div class="panel" style="margin-bottom:20px;">
         <div class="panel-hdr"><h2>Add Snapshot</h2><span class="hdr-sub">Enter balances for a specific date</span></div>
