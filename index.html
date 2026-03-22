@@ -226,25 +226,18 @@
     .chart-wrap {
       padding: 16px 20px;
       position: relative;
-      height: 280px;
-      min-height: 220px;
       overflow: hidden;
-      box-sizing: border-box;
     }
     .chart-wrap canvas {
       display: block !important;
-      max-width: 100% !important;
     }
-    /* panels with charts fill their container height */
     .panel-with-chart {
       display: flex;
       flex-direction: column;
-      min-height: 320px;
     }
     .panel-with-chart .chart-wrap {
       flex: 1;
-      height: auto;
-      min-height: 220px;
+      min-height: 200px;
     }
 
     /* ══════════════ NET WORTH ══════════════ */
@@ -1177,14 +1170,12 @@ onAuthStateChanged(auth,user=>{
 // ─── CHARTS ───
 let pieC,barC,fixC,savC,ytdBar,ytdLine,nwLine,nwPie,assetCharts={};
 function initCharts(){
-  // responsive + no fixed aspect ratio = fills container
   const mk=(id,type,o)=>{
     const canvas=document.getElementById(id);
-    return new Chart(canvas,{type, ...o, options:{
-      ...(o.options||{}),
-      responsive:true,
-      maintainAspectRatio:false,
-    }});
+    const opts = o.options||{};
+    opts.responsive = true;
+    opts.maintainAspectRatio = false;
+    return new Chart(canvas,{type, ...o, options: opts});
   };
   const axOpts=(yCb,extra={})=>({scales:{x:{ticks:{font:iFont,color:"#888"},grid:{display:false}},y:{ticks:{callback:yCb,font:iFont,color:"#888"},grid:{color:"#f0f0f0"}}}, ...extra});
   const pieLeg={position:"right",labels:{boxWidth:10,font:iFont,padding:12,color:"#555"}};
@@ -1622,20 +1613,8 @@ buildAssetInputs();
   const ro = new ResizeObserver(()=>{
     clearTimeout(roTimer);
     roTimer = setTimeout(()=>{
-      document.querySelectorAll('.chart-wrap canvas').forEach(canvas=>{
-        const chart = Chart.getChart(canvas);
-        if(!chart) return;
-        const wrap = canvas.closest('.chart-wrap');
-        if(!wrap) return;
-        const w = Math.max(80, wrap.clientWidth - 40);
-        const h = Math.max(80, wrap.clientHeight - 32);
-        try {
-          canvas.style.width = w + 'px';
-          canvas.style.height = h + 'px';
-          canvas.width = w;
-          canvas.height = h;
-          chart.resize(w, h);
-        } catch(e){}
+      Chart.instances && Object.values(Chart.instances).forEach(c=>{
+        try{ c.resize(); }catch(e){}
       });
     }, 50);
   });
@@ -1668,21 +1647,8 @@ buildAssetInputs();
   /* ── helper: resize all Chart.js instances ── */
   function reflowCharts(){
     requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        document.querySelectorAll('.chart-wrap canvas').forEach(canvas=>{
-          const chart = Chart.getChart(canvas);
-          if(!chart) return;
-          const wrap = canvas.closest('.chart-wrap');
-          if(!wrap) return;
-          const w = Math.max(80, wrap.clientWidth - 40);
-          const h = Math.max(80, wrap.clientHeight - 32);
-          // Force canvas element size first
-          canvas.style.width = w + 'px';
-          canvas.style.height = h + 'px';
-          canvas.width = w;
-          canvas.height = h;
-          chart.resize(w, h);
-        });
+      Chart.instances && Object.values(Chart.instances).forEach(c=>{
+        try{ c.resize(); }catch(e){}
       });
     });
   }
