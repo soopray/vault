@@ -226,18 +226,6 @@
     .chart-wrap {
       padding: 16px 20px;
       position: relative;
-      overflow: hidden;
-    }
-    .chart-wrap canvas {
-      display: block !important;
-    }
-    .panel-with-chart {
-      display: flex;
-      flex-direction: column;
-    }
-    .panel-with-chart .chart-wrap {
-      flex: 1;
-      min-height: 200px;
     }
 
     /* ══════════════ NET WORTH ══════════════ */
@@ -705,11 +693,11 @@
       </div>
 
       <div class="nw-2col" style="margin-bottom:20px;">
-        <div class="panel panel-with-chart" style="min-height:340px;">
+        <div class="panel" style="min-height:340px;">
           <div class="panel-hdr"><h2>Net Worth Over Time</h2></div>
           <div class="chart-wrap" style="height:280px;min-height:280px;"><canvas id="nwLineChart"></canvas></div>
         </div>
-        <div class="panel panel-with-chart" style="min-height:340px;">
+        <div class="panel" style="min-height:340px;">
           <div class="panel-hdr"><h2>Allocation</h2></div>
           <div class="chart-wrap" style="height:280px;min-height:280px;"><canvas id="nwPieChart"></canvas></div>
         </div>
@@ -833,13 +821,13 @@
       </div>
       <div class="summary-grid">
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>By Category</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="catTable"></table></div></div>
-        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Expenses Breakdown</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="pieChart"></canvas></div></div>
-        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>By Category</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="barChart"></canvas></div></div>
+        <div class="panel"><div class="panel-hdr"><h2>Expenses Breakdown</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="pieChart"></canvas></div></div>
+        <div class="panel"><div class="panel-hdr"><h2>By Category</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="barChart"></canvas></div></div>
       </div>
       <div class="summary-grid" style="margin-top:20px;">
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>Fixed Costs</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="fixedTable"></table></div></div>
-        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Fixed Cost</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="fixedPieChart"></canvas></div></div>
-        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Savings / Investment</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="savingsPieChart"></canvas></div></div>
+        <div class="panel"><div class="panel-hdr"><h2>Fixed Cost</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="fixedPieChart"></canvas></div></div>
+        <div class="panel"><div class="panel-hdr"><h2>Savings / Investment</h2></div><div class="chart-wrap" style="height:290px;min-height:290px;"><canvas id="savingsPieChart"></canvas></div></div>
       </div>
     </div>
   </div>
@@ -857,7 +845,7 @@
       </div>
       <div class="panel" style="margin-bottom:20px;"><div class="panel-hdr"><h2>Monthly Overview</h2></div><div class="chart-wrap" style="height:270px;min-height:270px;"><canvas id="ytdBarChart"></canvas></div></div>
       <div class="ytd-grid">
-        <div class="panel panel-with-chart"><div class="panel-hdr"><h2>Net by Month</h2></div><div class="chart-wrap" style="height:240px;min-height:240px;"><canvas id="ytdLineChart"></canvas></div></div>
+        <div class="panel"><div class="panel-hdr"><h2>Net by Month</h2></div><div class="chart-wrap" style="height:240px;min-height:240px;"><canvas id="ytdLineChart"></canvas></div></div>
         <div class="panel" style="overflow:auto;"><div class="panel-hdr"><h2>YTD by Category</h2></div><div style="padding:6px 0 12px;"><table class="cat-table" id="ytdCatTable"></table></div></div>
       </div>
     </div>
@@ -1170,13 +1158,7 @@ onAuthStateChanged(auth,user=>{
 // ─── CHARTS ───
 let pieC,barC,fixC,savC,ytdBar,ytdLine,nwLine,nwPie,assetCharts={};
 function initCharts(){
-  const mk=(id,type,o)=>{
-    const canvas=document.getElementById(id);
-    const opts = o.options||{};
-    opts.responsive = true;
-    opts.maintainAspectRatio = false;
-    return new Chart(canvas,{type, ...o, options: opts});
-  };
+  const mk=(id,type,o)=>new Chart(document.getElementById(id),{type,...o});
   const axOpts=(yCb,extra={})=>({scales:{x:{ticks:{font:iFont,color:"#888"},grid:{display:false}},y:{ticks:{callback:yCb,font:iFont,color:"#888"},grid:{color:"#f0f0f0"}}}, ...extra});
   const pieLeg={position:"right",labels:{boxWidth:10,font:iFont,padding:12,color:"#555"}};
   const pTip={callbacks:{label:c=>` ${c.label}: ${fmt(c.parsed)}`}};
@@ -1613,10 +1595,8 @@ buildAssetInputs();
   const ro = new ResizeObserver(()=>{
     clearTimeout(roTimer);
     roTimer = setTimeout(()=>{
-      Chart.instances && Object.values(Chart.instances).forEach(c=>{
-        try{ c.resize(); }catch(e){}
-      });
-    }, 50);
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
   });
   // Observe chart-wraps AND their parent panels
   document.querySelectorAll('.chart-wrap, .panel-with-chart').forEach(el=>ro.observe(el));
@@ -1644,13 +1624,8 @@ buildAssetInputs();
 (function(){
   const overlay = document.getElementById('dragOverlay');
 
-  /* ── helper: resize all Chart.js instances ── */
   function reflowCharts(){
-    requestAnimationFrame(()=>{
-      Chart.instances && Object.values(Chart.instances).forEach(c=>{
-        try{ c.resize(); }catch(e){}
-      });
-    });
+    setTimeout(()=>window.dispatchEvent(new Event('resize')), 50);
   }
 
   /* ════════════════════════════════════
