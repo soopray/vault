@@ -212,7 +212,7 @@
     /* ══════════════ PANELS ══════════════ */
     .panel {
       background: var(--surface-white);
-      border-radius: 16px; overflow: hidden;
+      border-radius: 16px; overflow: visible;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
       min-width: 0;
     }
@@ -561,25 +561,8 @@
       background: var(--outline); width: 60px;
     }
 
-    /* Panel resize handle (bottom-right corner) */
+    /* Panels */
     .panel { position: relative; }
-    .panel-resize-handle {
-      position: absolute; bottom: 0; right: 0;
-      width: 18px; height: 18px;
-      cursor: se-resize;
-      z-index: 20;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .panel:hover .panel-resize-handle { opacity: 1; }
-    .panel-resize-handle::before {
-      content: '';
-      position: absolute; bottom: 4px; right: 4px;
-      width: 8px; height: 8px;
-      border-right: 2px solid var(--outline);
-      border-bottom: 2px solid var(--outline);
-      border-radius: 1px;
-    }
 
     /* Drag overlay to prevent iframe/canvas stealing events */
     #dragOverlay {
@@ -594,6 +577,44 @@
     .rflex-col {
       display: flex; flex-direction: column; gap: 0;
     }
+
+    /* ══════════════ SNAPSHOT HISTORY TABLE (spreadsheet style) ══════════════ */
+    .snapshot-table-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 600px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .snapshot-table-wrap::-webkit-scrollbar { height: 6px; width: 6px; }
+    .snapshot-table-wrap::-webkit-scrollbar-thumb { background: var(--surface-container); border-radius: 3px; }
+    .snapshot-table-wrap .asset-table { min-width: max-content; }
+    .snapshot-table-wrap .asset-table th,
+    .snapshot-table-wrap .asset-table td { white-space: nowrap; padding: 9px 14px; font-size: 0.82rem; }
+    .snapshot-table-wrap .asset-table th { position: sticky; top: 0; background: var(--surface-white); z-index: 2; }
+    .snapshot-table-wrap .asset-table th:first-child,
+    .snapshot-table-wrap .asset-table td:first-child {
+      position: sticky; left: 0; z-index: 3; background: var(--surface-white);
+      min-width: 160px; font-weight: 600;
+    }
+    .snapshot-table-wrap .asset-table th:first-child { z-index: 4; }
+    .snapshot-table-wrap .cat-header td { position: sticky; left: 0; z-index: 1; }
+    .snapshot-table-wrap .total-row td:first-child { background: var(--primary-container); }
+
+    /* Snapshot reference image */
+    .snapshot-img-section { padding: 20px 24px; border-top: 1px solid var(--surface-container); }
+    .snapshot-img-section img { max-width: 100%; border-radius: 10px; border: 1px solid var(--surface-container); }
+
+    /* Export buttons row */
+    .export-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-export {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface-low); border: 1px solid var(--outline-var);
+      border-radius: 8px; padding: 7px 14px; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; color: var(--on-surface-var);
+      transition: all 0.12s;
+    }
+    .btn-export:hover { background: var(--surface-container); color: var(--on-surface); }
+    .btn-export .material-symbols-outlined { font-size: 16px; }
 
     @media (max-width: 960px) {
       #sidebar { display: none; }
@@ -717,6 +738,11 @@
       <div id="assetChartGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:20px;"></div>
 
       <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-hdr"><h2>Goals</h2><button class="btn-sm" onclick="openGoalModal()">+ Add Goal</button></div>
+        <div style="padding:20px 24px;" id="goalsList"></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:20px;">
         <div class="panel-hdr"><h2>Add Snapshot</h2><span class="hdr-sub">Enter balances for a specific date</span></div>
         <div class="snapshot-form">
           <div class="form-group" style="max-width:220px;">
@@ -728,12 +754,25 @@
         </div>
       </div>
 
-      <div class="panel" style="overflow:auto;">
-        <div class="panel-hdr"><h2>Snapshot History</h2></div>
-        <table class="asset-table">
-          <thead><tr id="snapshotHistoryHead"></tr></thead>
-          <tbody id="snapshotHistoryBody"></tbody>
-        </table>
+      <div class="panel">
+        <div class="panel-hdr">
+          <h2>Snapshot History</h2>
+          <div class="export-row">
+            <button class="btn-export" onclick="exportSnapshotsCSV()"><span class="material-symbols-outlined">download</span> CSV</button>
+            <button class="btn-export" onclick="exportSnapshotImage()"><span class="material-symbols-outlined">image</span> Image</button>
+            <button class="btn-export" onclick="exportSnapshotJSON()"><span class="material-symbols-outlined">data_object</span> JSON</button>
+          </div>
+        </div>
+        <div class="snapshot-table-wrap" id="snapshotTableWrap">
+          <table class="asset-table" id="snapshotSpreadsheet">
+            <thead><tr id="snapshotHistoryHead"></tr></thead>
+            <tbody id="snapshotHistoryBody"></tbody>
+          </table>
+        </div>
+        <div class="snapshot-img-section" id="snapshotImgSection" style="display:none;">
+          <div style="font-family:'Work Sans',sans-serif;font-size:0.72rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--on-surface-var);margin-bottom:10px;">Spreadsheet Reference</div>
+          <img id="snapshotRefImg" alt="Snapshot reference spreadsheet">
+        </div>
       </div>
     </div>
   </div>
@@ -1296,21 +1335,51 @@ function renderAssetCharts(sorted){
 }
 
 function renderSnapshotHistory(sorted){
+  const head=document.getElementById("snapshotHistoryHead");
+  const body=document.getElementById("snapshotHistoryBody");
   if(!sorted.length){
-    document.getElementById("snapshotHistoryHead").innerHTML="<th>Date</th>";
-    document.getElementById("snapshotHistoryBody").innerHTML=`<tr><td style="text-align:center;padding:32px;color:var(--outline);font-size:0.9rem;">No snapshots yet</td></tr>`;
+    head.innerHTML="<th>Account</th>";
+    body.innerHTML=`<tr><td style="text-align:center;padding:32px;color:var(--outline);font-size:0.9rem;">No snapshots yet</td></tr>`;
     return;
   }
-  const vis=D.assets.filter(a=>sorted.some(s=>(s.values?.[a.name]||0)>0));
-  document.getElementById("snapshotHistoryHead").innerHTML=`<th>Date</th>${vis.map(a=>`<th>${esc(a.name)}</th>`).join("")}<th>Total</th><th></th>`;
-  document.getElementById("snapshotHistoryBody").innerHTML=[...sorted].reverse().map(s=>{
-    return`<tr>
-      <td style="font-weight:600;white-space:nowrap;">${s.date}</td>
-      ${vis.map(a=>`<td>${s.values?.[a.name]?fmt(s.values[a.name]):"—"}</td>`).join("")}
-      <td style="font-weight:700;">${fmt(calcNW(s))}</td>
-      <td><button onclick="deleteSnapshot('${s.id}')" style="background:none;border:none;color:var(--outline-var);cursor:pointer;font-size:0.85rem;padding:2px 8px;" title="Delete">✕</button></td>
-    </tr>`;
-  }).join("");
+  // Spreadsheet format: accounts as rows, dates as columns
+  const dateLabels=sorted.map(s=>{
+    const d=new Date(s.date+"T00:00:00");
+    return d.toLocaleDateString("default",{month:"numeric",day:"numeric",year:"numeric"});
+  });
+  head.innerHTML=`<th></th><th></th>${sorted.map((s,i)=>`<th style="text-align:right;min-width:110px;">${dateLabels[i]}</th>`).join("")}`;
+
+  let rows="";
+  const cats=["Investment","Cash","Retirement","Crypto","Credit Card","Other"];
+  cats.forEach(cat=>{
+    const items=D.assets.filter(a=>a.cat===cat&&sorted.some(s=>(s.values?.[a.name]||0)>0));
+    if(!items.length)return;
+    rows+=`<tr class="cat-header"><td colspan="${sorted.length+2}" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--on-surface-var);background:var(--surface-low);padding:8px 14px;">${cat}</td></tr>`;
+    items.forEach(a=>{
+      rows+=`<tr><td style="min-width:160px;"><div class="asset-row-name"><div class="asset-dot" style="background:${a.color}"></div>${esc(a.name)}</div></td><td></td>`;
+      sorted.forEach(s=>{
+        const v=s.values?.[a.name];
+        rows+=`<td style="text-align:right;">${v?fmt(v):"—"}</td>`;
+      });
+      rows+=`</tr>`;
+    });
+  });
+
+  // SUM row
+  rows+=`<tr class="total-row"><td colspan="2" style="font-weight:800;">NET WORTH</td>`;
+  sorted.forEach(s=>{
+    rows+=`<td style="text-align:right;font-weight:800;">${fmt(calcNW(s))}</td>`;
+  });
+  rows+=`</tr>`;
+
+  // Delete buttons row
+  rows+=`<tr><td colspan="2" style="border:none;"></td>`;
+  sorted.forEach(s=>{
+    rows+=`<td style="text-align:right;border:none;"><button onclick="deleteSnapshot('${s.id}')" style="background:none;border:1px solid var(--outline-var);border-radius:6px;color:var(--outline);cursor:pointer;font-size:0.72rem;padding:2px 10px;" title="Delete snapshot">✕</button></td>`;
+  });
+  rows+=`</tr>`;
+
+  body.innerHTML=rows;
 }
 
 window.addSnapshot=()=>{
@@ -1557,6 +1626,84 @@ window.exportAndOpenSheets=(type)=>{
     setTimeout(()=>showStatus(""),4000);
   }, 800);
 };
+// ─── EXPORT SNAPSHOT AS IMAGE ───
+window.exportSnapshotImage=()=>{
+  const table=document.getElementById("snapshotSpreadsheet");
+  if(!table||!D.snapshots.length){alert("No snapshots to export.");return;}
+  // Create a canvas from the table
+  const wrap=document.getElementById("snapshotTableWrap");
+  const scrollL=wrap.scrollLeft, scrollT=wrap.scrollTop;
+  wrap.scrollLeft=0; wrap.scrollTop=0;
+  const rect=table.getBoundingClientRect();
+  const canvas=document.createElement("canvas");
+  const scale=2;
+  canvas.width=table.scrollWidth*scale;
+  canvas.height=table.scrollHeight*scale;
+  const ctx=canvas.getContext("2d");
+  ctx.scale(scale,scale);
+  ctx.fillStyle="#ffffff";
+  ctx.fillRect(0,0,table.scrollWidth,table.scrollHeight);
+  // Render table to canvas using foreignObject SVG trick
+  const data=new XMLSerializer().serializeToString(table);
+  const styles=document.querySelector("style").outerHTML;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${table.scrollWidth}" height="${table.scrollHeight}">
+    <foreignObject width="100%" height="100%">
+      <div xmlns="http://www.w3.org/1999/xhtml">${styles}<table class="asset-table" style="font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse;width:100%;">${table.innerHTML}</table></div>
+    </foreignObject></svg>`;
+  const img=new Image();
+  img.onload=()=>{
+    ctx.drawImage(img,0,0);
+    canvas.toBlob(blob=>{
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`vault-snapshot-${todayStr()}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      wrap.scrollLeft=scrollL;wrap.scrollTop=scrollT;
+    },"image/png");
+  };
+  img.onerror=()=>{
+    // Fallback: export as styled HTML file
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>VAULT Snapshot ${todayStr()}</title>
+      <style>body{font-family:Inter,Arial,sans-serif;padding:24px;background:#fff;}
+      table{border-collapse:collapse;width:100%;font-size:13px;}
+      th,td{padding:8px 12px;border:1px solid #e0e3e6;text-align:right;}
+      th{background:#f2f4f7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;}
+      td:first-child,th:first-child{text-align:left;}
+      .cat-header td{background:#f7f9fc;font-weight:700;font-size:12px;text-transform:uppercase;}
+      .total-row td{background:#141b2b;color:#fff;font-weight:800;}
+      .asset-row-name{display:flex;align-items:center;gap:8px;}
+      .asset-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+      </style></head><body><h2>VAULT — Net Worth Snapshot</h2><p style="color:#666;font-size:13px;">Exported ${new Date().toLocaleDateString()}</p>
+      ${table.outerHTML}</body></html>`;
+    const a=document.createElement("a");
+    a.href="data:text/html;charset=utf-8,"+encodeURIComponent(html);
+    a.download=`vault-snapshot-${todayStr()}.html`;
+    a.click();
+    wrap.scrollLeft=scrollL;wrap.scrollTop=scrollT;
+  };
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+};
+
+// ─── EXPORT SNAPSHOT AS JSON ───
+window.exportSnapshotJSON=()=>{
+  if(!D.snapshots.length){alert("No snapshots to export.");return;}
+  const data={
+    exported: new Date().toISOString(),
+    assets: D.assets,
+    snapshots: [...D.snapshots].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(s=>({
+      date:s.date,
+      values:s.values,
+      netWorth: calcNW(s)
+    }))
+  };
+  const json=JSON.stringify(data,null,2);
+  const a=document.createElement("a");
+  a.href="data:application/json;charset=utf-8,"+encodeURIComponent(json);
+  a.download=`vault-snapshot-${todayStr()}.json`;
+  a.click();
+};
+
 window.clearSnapshots=()=>{if(!confirm("Delete ALL snapshots? This cannot be undone."))return;D.snapshots=[];saveDB();renderNetWorth();};
 
 // ─── NAV ───
@@ -1680,47 +1827,6 @@ buildAssetInputs();
   }
 
   /* ════════════════════════════════════
-     makeResizable(panelEl)
-     Adds a corner drag handle for free resize
-  ════════════════════════════════════ */
-  function makeResizable(panel){
-    const handle = document.createElement('div');
-    handle.className = 'panel-resize-handle';
-    handle.title = 'Drag to resize';
-    panel.appendChild(handle);
-
-    handle.addEventListener('mousedown', function(e){
-      e.preventDefault();
-      overlay.classList.add('active');
-      document.body.style.cursor = 'se-resize';
-      document.body.style.userSelect = 'none';
-
-      const startX = e.clientX, startY = e.clientY;
-      const startW = panel.getBoundingClientRect().width;
-      const startH = panel.getBoundingClientRect().height;
-
-      function onMove(e){
-        const w = Math.max(200, startW + e.clientX - startX);
-        const h = Math.max(120, startH + e.clientY - startY);
-        panel.style.width  = w + 'px';
-        panel.style.height = h + 'px';
-        panel.style.flex   = 'none';
-        reflowCharts();
-      }
-      function onUp(){
-        overlay.classList.remove('active');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        reflowCharts();
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
-
-  /* ════════════════════════════════════
      wrapWithSplitters(containerSel, dir)
      Finds all direct .panel / rflex children and
      inserts draggable dividers between them.
@@ -1766,15 +1872,18 @@ buildAssetInputs();
      INIT — run after DOM is ready
   ════════════════════════════════════ */
   function initResize(){
-    // 1. Wrap all 2-col / 3-col grid layouts with horizontal splitters
-    document.querySelectorAll('.tx-layout, .nw-2col, .nw-3col, .summary-grid, .ytd-grid, .settings-grid').forEach(el => {
+    // Only add splitters to chart/form layouts (not full-width table panels)
+    document.querySelectorAll('.nw-2col, .summary-grid, .ytd-grid, .settings-grid').forEach(el => {
       wrapWithSplitters(el, 'h');
     });
 
-    // 2. Add corner resize handle to every panel
-    document.querySelectorAll('.panel').forEach(p => {
-      makeResizable(p);
+    // tx-layout needs special handling — don't break the form column
+    document.querySelectorAll('.tx-layout').forEach(el => {
+      wrapWithSplitters(el, 'h');
     });
+
+    // Do NOT add corner resize handles — they cause panels to overflow
+    // and break the document flow. The splitters are sufficient.
   }
 
   // Wait for first render
@@ -1784,22 +1893,7 @@ buildAssetInputs();
     window.addEventListener('load', initResize);
   }
 
-  // Re-init when new panels are rendered dynamically (asset chart grid)
-  const observer = new MutationObserver(mutations => {
-    mutations.forEach(m => {
-      m.addedNodes.forEach(node => {
-        if(node.nodeType === 1){
-          if(node.classList && node.classList.contains('panel')){
-            makeResizable(node);
-          }
-          node.querySelectorAll && node.querySelectorAll('.panel').forEach(p => {
-            if(!p.querySelector('.panel-resize-handle')) makeResizable(p);
-          });
-        }
-      });
-    });
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
+  // No dynamic resize handles needed — splitters handle resizing
 
 })();
 </script>
