@@ -587,18 +587,21 @@
     }
     .snapshot-table-wrap::-webkit-scrollbar { height: 6px; width: 6px; }
     .snapshot-table-wrap::-webkit-scrollbar-thumb { background: var(--surface-container); border-radius: 3px; }
-    .snapshot-table-wrap .asset-table { min-width: max-content; }
+    .snapshot-table-wrap .asset-table { min-width: max-content; border-collapse: separate; border-spacing: 0; }
     .snapshot-table-wrap .asset-table th,
-    .snapshot-table-wrap .asset-table td { white-space: nowrap; padding: 9px 14px; font-size: 0.82rem; }
+    .snapshot-table-wrap .asset-table td { white-space: nowrap; padding: 9px 14px; font-size: 0.82rem; border-bottom: 1px solid var(--surface-low); }
     .snapshot-table-wrap .asset-table th { position: sticky; top: 0; background: var(--surface-white); z-index: 2; }
-    .snapshot-table-wrap .asset-table th:first-child,
-    .snapshot-table-wrap .asset-table td:first-child {
+    .snapshot-table-wrap .asset-table td.sticky-col,
+    .snapshot-table-wrap .asset-table th.sticky-col {
       position: sticky; left: 0; z-index: 3; background: var(--surface-white);
-      min-width: 160px; font-weight: 600;
+      min-width: 180px; font-weight: 600;
+      border-right: 2px solid var(--surface-container);
+      box-shadow: 4px 0 8px rgba(0,0,0,0.04);
     }
-    .snapshot-table-wrap .asset-table th:first-child { z-index: 4; }
-    .snapshot-table-wrap .cat-header td { position: sticky; left: 0; z-index: 1; }
-    .snapshot-table-wrap .total-row td:first-child { background: var(--primary-container); }
+    .snapshot-table-wrap .asset-table th.sticky-col { z-index: 4; }
+    .snapshot-table-wrap .cat-header td.sticky-col { background: var(--surface-low); }
+    .snapshot-table-wrap .total-row td.sticky-col { background: var(--primary-container); color: white; }
+    .snapshot-table-wrap .total-row td { background: var(--primary-container); color: white; }
 
     /* Snapshot reference image */
     .snapshot-img-section { padding: 20px 24px; border-top: 1px solid var(--surface-container); }
@@ -759,7 +762,7 @@
           <h2>Snapshot History</h2>
           <div class="export-row">
             <button class="btn-export" onclick="exportSnapshotsCSV()"><span class="material-symbols-outlined">download</span> CSV</button>
-            <button class="btn-export" onclick="exportSnapshotImage()"><span class="material-symbols-outlined">image</span> Image</button>
+            <button class="btn-export" onclick="exportAndOpenSheets('snapshots')" style="background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;"><span class="material-symbols-outlined">table_chart</span> Google Sheets</button>
             <button class="btn-export" onclick="exportSnapshotJSON()"><span class="material-symbols-outlined">data_object</span> JSON</button>
           </div>
         </div>
@@ -1031,8 +1034,8 @@ const DEF_ASSETS = [
   {name:"Vanguard ETF",       cat:"Investment", color:"#16a34a", icon:"📊"},
   {name:"Morgan Stanley GSU", cat:"Investment", color:"#15803d", icon:"💹"},
   {name:"eTrade (Adobe)",     cat:"Investment", color:"#4ade80", icon:"🖥️"},
-  {name:"Marcus Savings",     cat:"Investment", color:"#86efac", icon:"🏦"},
-  {name:"Forbright Savings",  cat:"Investment", color:"#bbf7d0", icon:"💎"},
+  {name:"Marcus Savings",     cat:"Cash", color:"#60a5fa", icon:"🏦"},
+  {name:"Forbright Savings",  cat:"Cash", color:"#93c5fd", icon:"💎"},
   {name:"BoA Checking",       cat:"Cash",       color:"#3b82f6", icon:"🏧"},
   {name:"Vanguard 401k",      cat:"Retirement", color:"#6366f1", icon:"🏛️"},
   {name:"Vanguard Roth IRA",  cat:"Retirement", color:"#8b5cf6", icon:"📋"},
@@ -1347,16 +1350,16 @@ function renderSnapshotHistory(sorted){
     const d=new Date(s.date+"T00:00:00");
     return d.toLocaleDateString("default",{month:"numeric",day:"numeric",year:"numeric"});
   });
-  head.innerHTML=`<th></th><th></th>${sorted.map((s,i)=>`<th style="text-align:right;min-width:110px;">${dateLabels[i]}</th>`).join("")}`;
+  head.innerHTML=`<th class="sticky-col">Account</th>${sorted.map((s,i)=>`<th style="text-align:right;min-width:110px;">${dateLabels[i]}</th>`).join("")}`;
 
   let rows="";
   const cats=["Investment","Cash","Retirement","Crypto","Credit Card","Other"];
   cats.forEach(cat=>{
     const items=D.assets.filter(a=>a.cat===cat&&sorted.some(s=>(s.values?.[a.name]||0)>0));
     if(!items.length)return;
-    rows+=`<tr class="cat-header"><td colspan="${sorted.length+2}" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--on-surface-var);background:var(--surface-low);padding:8px 14px;">${cat}</td></tr>`;
+    rows+=`<tr class="cat-header"><td class="sticky-col" colspan="1" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--on-surface-var);padding:8px 14px;">${cat}</td>${sorted.map(()=>'<td style="background:var(--surface-low);"></td>').join("")}</tr>`;
     items.forEach(a=>{
-      rows+=`<tr><td style="min-width:160px;"><div class="asset-row-name"><div class="asset-dot" style="background:${a.color}"></div>${esc(a.name)}</div></td><td></td>`;
+      rows+=`<tr><td class="sticky-col"><div class="asset-row-name"><div class="asset-dot" style="background:${a.color}"></div>${esc(a.name)}</div></td>`;
       sorted.forEach(s=>{
         const v=s.values?.[a.name];
         rows+=`<td style="text-align:right;">${v?fmt(v):"—"}</td>`;
@@ -1366,14 +1369,14 @@ function renderSnapshotHistory(sorted){
   });
 
   // SUM row
-  rows+=`<tr class="total-row"><td colspan="2" style="font-weight:800;">NET WORTH</td>`;
+  rows+=`<tr class="total-row"><td class="sticky-col" style="font-weight:800;">NET WORTH</td>`;
   sorted.forEach(s=>{
     rows+=`<td style="text-align:right;font-weight:800;">${fmt(calcNW(s))}</td>`;
   });
   rows+=`</tr>`;
 
   // Delete buttons row
-  rows+=`<tr><td colspan="2" style="border:none;"></td>`;
+  rows+=`<tr><td class="sticky-col" style="border:none;background:var(--surface-white);"></td>`;
   sorted.forEach(s=>{
     rows+=`<td style="text-align:right;border:none;"><button onclick="deleteSnapshot('${s.id}')" style="background:none;border:1px solid var(--outline-var);border-radius:6px;color:var(--outline);cursor:pointer;font-size:0.72rem;padding:2px 10px;" title="Delete snapshot">✕</button></td>`;
   });
@@ -1627,64 +1630,6 @@ window.exportAndOpenSheets=(type)=>{
   }, 800);
 };
 // ─── EXPORT SNAPSHOT AS IMAGE ───
-window.exportSnapshotImage=()=>{
-  const table=document.getElementById("snapshotSpreadsheet");
-  if(!table||!D.snapshots.length){alert("No snapshots to export.");return;}
-  // Create a canvas from the table
-  const wrap=document.getElementById("snapshotTableWrap");
-  const scrollL=wrap.scrollLeft, scrollT=wrap.scrollTop;
-  wrap.scrollLeft=0; wrap.scrollTop=0;
-  const rect=table.getBoundingClientRect();
-  const canvas=document.createElement("canvas");
-  const scale=2;
-  canvas.width=table.scrollWidth*scale;
-  canvas.height=table.scrollHeight*scale;
-  const ctx=canvas.getContext("2d");
-  ctx.scale(scale,scale);
-  ctx.fillStyle="#ffffff";
-  ctx.fillRect(0,0,table.scrollWidth,table.scrollHeight);
-  // Render table to canvas using foreignObject SVG trick
-  const data=new XMLSerializer().serializeToString(table);
-  const styles=document.querySelector("style").outerHTML;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${table.scrollWidth}" height="${table.scrollHeight}">
-    <foreignObject width="100%" height="100%">
-      <div xmlns="http://www.w3.org/1999/xhtml">${styles}<table class="asset-table" style="font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse;width:100%;">${table.innerHTML}</table></div>
-    </foreignObject></svg>`;
-  const img=new Image();
-  img.onload=()=>{
-    ctx.drawImage(img,0,0);
-    canvas.toBlob(blob=>{
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob);
-      a.download=`vault-snapshot-${todayStr()}.png`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      wrap.scrollLeft=scrollL;wrap.scrollTop=scrollT;
-    },"image/png");
-  };
-  img.onerror=()=>{
-    // Fallback: export as styled HTML file
-    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>VAULT Snapshot ${todayStr()}</title>
-      <style>body{font-family:Inter,Arial,sans-serif;padding:24px;background:#fff;}
-      table{border-collapse:collapse;width:100%;font-size:13px;}
-      th,td{padding:8px 12px;border:1px solid #e0e3e6;text-align:right;}
-      th{background:#f2f4f7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;}
-      td:first-child,th:first-child{text-align:left;}
-      .cat-header td{background:#f7f9fc;font-weight:700;font-size:12px;text-transform:uppercase;}
-      .total-row td{background:#141b2b;color:#fff;font-weight:800;}
-      .asset-row-name{display:flex;align-items:center;gap:8px;}
-      .asset-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-      </style></head><body><h2>VAULT — Net Worth Snapshot</h2><p style="color:#666;font-size:13px;">Exported ${new Date().toLocaleDateString()}</p>
-      ${table.outerHTML}</body></html>`;
-    const a=document.createElement("a");
-    a.href="data:text/html;charset=utf-8,"+encodeURIComponent(html);
-    a.download=`vault-snapshot-${todayStr()}.html`;
-    a.click();
-    wrap.scrollLeft=scrollL;wrap.scrollTop=scrollT;
-  };
-  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
-};
-
 // ─── EXPORT SNAPSHOT AS JSON ───
 window.exportSnapshotJSON=()=>{
   if(!D.snapshots.length){alert("No snapshots to export.");return;}
