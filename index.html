@@ -1169,7 +1169,16 @@ function subscribeDB(uid){
     }
     // Auto-inject historical data if not already present
     const added = mergeHistoricalSnapshots();
-    if(added > 0) saveDB();
+    // Migrate: move Marcus Savings & Forbright Savings to Cash
+    let migrated = false;
+    D.assets.forEach(a => {
+      if((a.name === "Marcus Savings" || a.name === "Forbright Savings") && a.cat !== "Cash"){
+        a.cat = "Cash";
+        a.color = a.name === "Marcus Savings" ? "#60a5fa" : "#93c5fd";
+        migrated = true;
+      }
+    });
+    if(added > 0 || migrated) saveDB();
     updateCatSelect(); updateSourceSelect(); buildAssetInputs(); renderAll();
   });
 }
