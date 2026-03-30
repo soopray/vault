@@ -1170,15 +1170,28 @@ function subscribeDB(uid){
     // Auto-inject historical data if not already present
     const added = mergeHistoricalSnapshots();
     // Migrate: move Marcus Savings & Forbright Savings to Cash
+    const CASH_MIGRATE = {"Marcus Savings":"#60a5fa","Forbright Savings":"#93c5fd"};
     let migrated = false;
     D.assets.forEach(a => {
-      if((a.name === "Marcus Savings" || a.name === "Forbright Savings") && a.cat !== "Cash"){
+      if(CASH_MIGRATE[a.name] && a.cat !== "Cash"){
         a.cat = "Cash";
-        a.color = a.name === "Marcus Savings" ? "#60a5fa" : "#93c5fd";
+        a.color = CASH_MIGRATE[a.name];
         migrated = true;
       }
     });
-    if(added > 0 || migrated) saveDB();
+    // Also ensure they exist if missing
+    Object.entries(CASH_MIGRATE).forEach(([name,color]) => {
+      if(!D.assets.find(a => a.name === name)){
+        D.assets.push({name, cat:"Cash", color, icon: name==="Marcus Savings"?"🏦":"💎"});
+        migrated = true;
+      }
+    });
+    if(added > 0 || migrated){
+      // Force write to Firestore immediately (bypass debounce)
+      if(currentUser){
+        setDoc(doc(db,"users",currentUser.uid,"data","main"),D).catch(()=>{});
+      }
+    }
     updateCatSelect(); updateSourceSelect(); buildAssetInputs(); renderAll();
   });
 }
